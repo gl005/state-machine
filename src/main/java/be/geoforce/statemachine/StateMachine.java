@@ -70,7 +70,7 @@ public class StateMachine<S extends State, T extends Transition<S>> {
     }
 
     protected <R extends StateContainer<S>> TransitionEvent createEvent(TransitionEvent.TransitionEventType transitionEventType, R container, S beforeState, T transition) {
-        return new TransitionEvent(transitionEventType, beforeState, transition, container);
+        return new TransitionEvent<>(transitionEventType, beforeState, transition, container);
     }
 
     public T findTransition(S fromState, S toState) {

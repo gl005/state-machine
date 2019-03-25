@@ -6,15 +6,14 @@ import be.geoforce.statemachine.mock.OrderState;
 import be.geoforce.statemachine.mock.OrderStateMachine;
 import be.geoforce.statemachine.mock.OrderTransition;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,9 +25,6 @@ public class StateMachineTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
-
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
 
     @Before
     public void setUp() {
@@ -61,10 +57,9 @@ public class StateMachineTest {
     public void transitionToInValidState() {
         Order order = new Order(OrderState.CANCELLED);
 
-        expectedException.expect(IllegalTransitionException.class);
-        expectedException.expectMessage("Can not transition from CANCELLED to PAID");
-
-        orderStateMachine.transition(order, OrderState.PAID);
+        assertThatExceptionOfType(IllegalTransitionException.class)
+            .describedAs("Can not transition from CANCELLED to PAID")
+            .isThrownBy(() -> orderStateMachine.transition(order, OrderState.PAID));
 
         verify(eventPublisher, never()).publishEvent(any(TransitionEvent.class));
         assertThat(order.getState()).isEqualTo(OrderState.CANCELLED);
@@ -74,9 +69,8 @@ public class StateMachineTest {
     public void transitionWithNullContainer() {
         Order order = new Order(OrderState.CANCELLED);
 
-        expectedException.expect(IllegalArgumentException.class);
-
-        orderStateMachine.transition(null, OrderState.PAID);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .isThrownBy(() -> orderStateMachine.transition(null, OrderState.PAID));
 
         verify(eventPublisher, never()).publishEvent(any(TransitionEvent.class));
         assertThat(order.getState()).isEqualTo(OrderState.CANCELLED);
@@ -86,9 +80,8 @@ public class StateMachineTest {
     public void transitionWithNullToState() {
         Order order = new Order(OrderState.CANCELLED);
 
-        expectedException.expect(IllegalArgumentException.class);
-
-        orderStateMachine.transition(order, null);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .isThrownBy(() -> orderStateMachine.transition(order, null));
 
         verify(eventPublisher, never()).publishEvent(any(TransitionEvent.class));
         assertThat(order.getState()).isEqualTo(OrderState.CANCELLED);
