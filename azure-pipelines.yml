@@ -19,6 +19,6 @@ steps:
     jdkArchitectureOption: 'x64'
     publishJUnitResults: true
     testResultsFiles: '**/surefire-reports/TEST-*.xml'
-    goals: 'test package'
+    goals: 'verify package'
     pmdRunAnalysis: true
     findBugsRunAnalysis: true

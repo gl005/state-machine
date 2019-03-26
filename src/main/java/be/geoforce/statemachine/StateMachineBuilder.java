@@ -27,7 +27,7 @@ public final class StateMachineBuilder<S, T> {
             .getOrDefault(transition, null);
 
         if (existingToState != null) {
-            throw new IllegalConfigException(String.format("Transition from %s using %s already exists (%s)", fromState, transition, existingToState));
+            throw new IllegalConfigException(String.format("Transition from %s using %s already exists (to %s)", fromState, transition, existingToState));
         }
 
         transitions
