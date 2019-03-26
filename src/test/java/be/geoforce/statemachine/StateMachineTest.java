@@ -3,7 +3,6 @@ package be.geoforce.statemachine;
 import be.geoforce.statemachine.exceptions.IllegalTransitionException;
 import be.geoforce.statemachine.mock.Order;
 import be.geoforce.statemachine.mock.OrderState;
-import be.geoforce.statemachine.mock.OrderStateMachine;
 import be.geoforce.statemachine.mock.OrderTransition;
 import org.junit.Before;
 import org.junit.Test;
@@ -21,14 +20,23 @@ import static org.mockito.Mockito.verify;
 @RunWith(MockitoJUnitRunner.StrictStubs.class)
 public class StateMachineTest {
 
-    private OrderStateMachine orderStateMachine;
+    private StateMachine<OrderState, OrderTransition> orderStateMachine;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @Before
     public void setUp() {
-        orderStateMachine = new OrderStateMachine(eventPublisher);
+        orderStateMachine = StateMachine.<OrderState, OrderTransition>builder()
+            .transition(OrderState.PLACED, OrderTransition.PROCESS, OrderState.PROCESSING)
+            .transition(OrderState.PLACED, OrderTransition.CANCEL, OrderState.CANCELLED)
+            .transition(OrderState.PROCESSING, OrderTransition.READY, OrderState.AWAITING_PAYMENT)
+            .transition(OrderState.AWAITING_PAYMENT, OrderTransition.PAY, OrderState.PAID)
+            .transition(OrderState.AWAITING_PAYMENT, OrderTransition.CANCEL, OrderState.CANCELLED)
+            .transition(OrderState.CANCELLED, OrderTransition.CANCEL, OrderState.CANCELLED)
+            .beforeConsumer(eventPublisher::publishEvent)
+            .afterConsumer(eventPublisher::publishEvent)
+            .build();
     }
 
     @Test

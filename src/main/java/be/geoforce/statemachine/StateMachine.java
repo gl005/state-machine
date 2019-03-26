@@ -1,47 +1,34 @@
 package be.geoforce.statemachine;
 
-import be.geoforce.statemachine.exceptions.IllegalConfigException;
 import be.geoforce.statemachine.exceptions.IllegalTransitionException;
-import lombok.RequiredArgsConstructor;
-import lombok.Value;
-import org.springframework.context.ApplicationEventPublisher;
 
-import javax.annotation.PostConstruct;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
-@RequiredArgsConstructor
-public class StateMachine<S extends State, T extends Transition<S>> {
-    private final Set<T> transitions;
-    private final ApplicationEventPublisher applicationEventPublisher;
+import static be.geoforce.statemachine.TransitionEvent.TransitionEventType.AFTER;
+import static be.geoforce.statemachine.TransitionEvent.TransitionEventType.BEFORE;
 
-    @PostConstruct
-    private void validateTransitions() {
-        Set<SingleTransition<S>> singleTransitions = new HashSet<>();
-        for (T transition : transitions) {
-            for (S fromState : transition.getFrom()) {
-                SingleTransition<S> singleTransition = new SingleTransition<>(fromState, transition.getTo());
+public final class StateMachine<S, T> {
+    private final Map<S, Map<T, S>> transitions;
+    private final Consumer<TransitionEvent<S, T, ?>> beforeConsumer;
+    private final Consumer<TransitionEvent<S, T, ?>> afterConsumer;
 
-                // check if there isn't already a transition between these states
-                if (singleTransitions.contains(singleTransition)) {
-                    throw new IllegalConfigException(
-                            String.format("Ambiguous transition from %s to %s, there is another transitions between these states",
-                                    singleTransition.fromState, singleTransition.toState));
-                }
-
-                // from state can not not be a final state
-                if (fromState.isFinalState()) {
-                    throw new IllegalConfigException(String.format("Transition found from state '%s' which is marked as final", fromState));
-                }
-
-                // from and to state can not be the same
-                if (fromState.equals(singleTransition.getToState())) {
-                    throw new IllegalConfigException(String.format("From state can not be equal to to destination state '%s'", singleTransition.getToState()));
-                }
-                singleTransitions.add(singleTransition);
-            }
+    public StateMachine(
+        Map<S, Map<T, S>> transitions,
+        Consumer<TransitionEvent<S, T, ?>> beforeConsumer,
+        Consumer<TransitionEvent<S, T, ?>> afterConsumer
+    ) {
+        // Copy
+        this.transitions = new HashMap<>();
+        for (Map.Entry<S, Map<T, S>> entry : transitions.entrySet()) {
+            this.transitions.put(entry.getKey(), new HashMap<>(entry.getValue()));
         }
+
+        this.beforeConsumer = beforeConsumer;
+        this.afterConsumer = afterConsumer;
     }
 
     public <R extends StateContainer<S>> R transition(R container, S toState) {
@@ -58,34 +45,28 @@ public class StateMachine<S extends State, T extends Transition<S>> {
         if (transition == null) {
             throw new IllegalTransitionException(String.format("Can not transition from %s to %s", beforeState, toState));
         }
-        TransitionEvent beforeEvent = createEvent(TransitionEvent.TransitionEventType.BEFORE, container, beforeState, transition);
-        applicationEventPublisher.publishEvent(beforeEvent);
+        TransitionEvent<S, T, R> beforeEvent = new TransitionEvent<>(BEFORE, beforeState, transition, container);
+        beforeConsumer.accept(beforeEvent);
 
         container.setState(toState);
-        R resultContainer = onTransitioned == null ? container: onTransitioned.apply(container);
+        R resultContainer = onTransitioned == null ? container : onTransitioned.apply(container);
 
-        TransitionEvent afterEvent = createEvent(TransitionEvent.TransitionEventType.AFTER, container, beforeState, transition);
-        applicationEventPublisher.publishEvent(afterEvent);
+        TransitionEvent<S, T, R> afterEvent = new TransitionEvent<>(AFTER, beforeState, transition, container);
+        afterConsumer.accept(afterEvent);
         return resultContainer;
     }
 
-    protected <R extends StateContainer<S>> TransitionEvent createEvent(TransitionEvent.TransitionEventType transitionEventType, R container, S beforeState, T transition) {
-        return new TransitionEvent<>(transitionEventType, beforeState, transition, container);
-    }
-
     public T findTransition(S fromState, S toState) {
-        for (T transition : transitions) {
-            if (transition.getFrom().contains(fromState) && transition.getTo().equals(toState)) {
-                return transition;
-            }
-        }
-        return null;
+        return transitions
+            .getOrDefault(fromState, Collections.emptyMap())
+            .entrySet().stream()
+            .filter(e -> e.getValue().equals(toState))
+            .map(Map.Entry::getKey)
+            .findFirst().orElse(null);
     }
 
-
-    @Value
-    private static final class SingleTransition<S extends State> {
-        private final S fromState;
-        private final S toState;
+    public static <S, T> StateMachineBuilder<S, T> builder() {
+        return new StateMachineBuilder<>();
     }
+
 }

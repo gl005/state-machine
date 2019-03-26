@@ -3,7 +3,7 @@ package be.geoforce.statemachine;
 import lombok.Value;
 
 @Value
-public final class TransitionEvent<S extends State, T extends Transition<S>, R extends StateContainer<S>> {
+public final class TransitionEvent<S, T, R extends StateContainer<S>> {
     public enum TransitionEventType {
         BEFORE,
         AFTER
